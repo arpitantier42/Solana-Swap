@@ -1,8 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::{
-    associated_token::AssociatedToken,
-    token_interface::{Mint, TokenAccount, TokenInterface},
-};
+use anchor_spl::token::{Mint, TokenAccount};
+use anchor_spl::{associated_token::AssociatedToken, token_interface::TokenInterface};
 
 use crate::{Offer, ANCHOR_DISCRIMINATOR};
 
@@ -15,18 +13,13 @@ pub struct MakeOffer<'info> {
     pub maker: Signer<'info>,
 
     #[account(mint::token_program = token_program)]
-    pub token_mint_a: InterfaceAccount<'info, Mint>,
+    pub token_mint_a: Account<'info, Mint>,
 
     #[account(mint::token_program = token_program)]
-    pub token_mint_b: InterfaceAccount<'info, Mint>,
+    pub token_mint_b: Account<'info, Mint>,
 
-    #[account(
-        mut,
-        associated_token::mint = token_mint_a,
-        associated_token::authority = maker,
-        associated_token::token_program = token_program
-    )]
-    pub maker_token_account_a: InterfaceAccount<'info, TokenAccount>,
+    #[account(mut)]
+    pub maker_token_account_a: Account<'info, TokenAccount>,
 
     #[account(
         init,
@@ -37,14 +30,11 @@ pub struct MakeOffer<'info> {
     )]
     pub offer: Account<'info, Offer>,
 
-    #[account(
-        init,
-        payer = maker,
-        associated_token::mint = token_mint_a,
-        associated_token::authority = offer,
-        associated_token::token_program = token_program
-    )]
-    pub vault: InterfaceAccount<'info, TokenAccount>,
+    #[account(mut,seeds = [b"vault".as_ref()],bump)]
+    pub vault: SystemAccount<'info>,
+
+    #[account(mut)]
+    pub vault_ata: Account<'info, TokenAccount>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Interface<'info, TokenInterface>,
@@ -57,9 +47,8 @@ pub fn send_offered_tokens_to_vault(
 ) -> Result<()> {
     transfer_tokens(
         &context.accounts.maker_token_account_a,
-        &context.accounts.vault,
+        &context.accounts.vault_ata,
         &token_a_offered_amount,
-        &context.accounts.token_mint_a,
         &context.accounts.maker,
         &context.accounts.token_program,
     )
